@@ -7,7 +7,7 @@ from sqlalchemy.orm import Query
 from population import *
 from util import *
 
-type userType = {"id": Integer, "name": str, "passwd": str}
+type userType = {"id": int, "name": str, "passwd": str}
 
 userConnect: userType = {"id": None, "name": "", "passwd": ""}
 
@@ -19,10 +19,12 @@ session = Session()
 
 # Request to register as new user
 
-def addUser(name: str, password: str, email: str = ""):
+def addUser(name: str, password: str, email: str = "")->bool:
     user = User(username=name, password=password, email=email)
     session.add(user)
     session.commit()
+    print("account created successfully !")
+
 
 
 # addUser("userOnefst", "thepassword", "userOnefst@gmail.com")
@@ -57,16 +59,15 @@ def connectAsUser(name: str, password: str) -> bool:
                 f"userid -> {userConnect["id"]} username -> {userConnect["name"]}  "
                 f"password-> {userConnect["passwd"]} \n")
 
-
     except NoResultFound:
         print(f"there is no user with name {name} and password {password}")
     return res
 
 
-connectAsUser("BobSmith", "safePassword321")
+# connectAsUser("BobSmith", "safePassword321")
 
 
-def deconnection():
+def disConnect():
     global userConnect
     if userConnect["id"] is not None:
         userConnect["id"] = None
@@ -75,7 +76,7 @@ def deconnection():
         print("you successfully logout ! \n")
 
 
-# deconnection()
+# disConnect()
 
 def printAllCategories():
     results = session.query(Category).all()
@@ -98,7 +99,7 @@ def printAllCars():
 
 # printAllCars()
 
-def publishAdvert(transaction: str, location: str, price: float,
+def publishTheAdvert(transaction: str, location: str, price: float,
                   categoryId: str, description: str = "") -> None:
     global userConnect
     if userConnect["id"] is not None:
@@ -128,13 +129,11 @@ def publishAdvert(transaction: str, location: str, price: float,
                   "available categories "
                   "of car with "
                   "the command ... before making this command \n")
-    else:
-        print("you have to login first brfore making this command \n")
 
 
-# publishAdvert("sale", "tours", 21000.0, "2")
+# publishTheAdvert("sale", "tours", 21000.0, "2")
 #
-# publishAdvert("sale", "tours", 21000.0, "2")
+# publishTheAdvert("sale", "tours", 21000.0, "2")
 
 
 def printAllMyAdvertises() -> None:
@@ -190,11 +189,10 @@ def printAllAdvertisesOf(username: str) -> None:
     else:
         print("you need to connect first ! \n")
 
+# printAllAdvertisesOf("BobSmith")
 
-printAllAdvertisesOf("BobSmith")
 
-
-def modifyAdvert(id_advert: Integer, newTransaction: str, newLocation: str,
+def modifyTheAdvert(id_advert: int, newTransaction: str, newLocation: str,
                  newPrice: float, newDescription: str) -> None:
     global userConnect
 
@@ -207,7 +205,8 @@ def modifyAdvert(id_advert: Integer, newTransaction: str, newLocation: str,
             if result:
                 session.query(Advert).filter(
                     Advert.id_advert == id_advert).update({
-                    Advert.price: newPrice, Advert.description: newDescription,
+                    Advert.price: newPrice,
+                    Advert.description: newDescription,
                     Advert.transaction: newTransaction,
                     Advert.location: newLocation
                 })
@@ -218,14 +217,11 @@ def modifyAdvert(id_advert: Integer, newTransaction: str, newLocation: str,
         except NoResultFound:
             print(f"you don't have advert of id {id_advert}")
 
-    else:
-        print(f"you have to connect first before making this command !")
+
+# modifyTheAdvert(3, "rent", "Paris", 12000.0, "I have changed it !")
 
 
-# modifyAdvert(3, "rent", "Paris", 12000.0, "I have changed it !")
-
-
-def removeAdvert(id_advert: Integer) -> None:
+def removeAdvertOfId(id_advert: Integer) -> None:
     global userConnect
 
     try:
@@ -244,10 +240,10 @@ def removeAdvert(id_advert: Integer) -> None:
         print(f"you don't have advert of id {id_advert}")
 
 
-# removeAdvert(10)
+# removeAdvertOfId(10)
 
 
-def findAdvertBaseOnAllCriterias(transaction: str = "", location: str = "",
+def findAdvertBaseOnCriterias(transaction: str = "", location: str = "",
                                  price: float = math.inf,
                                  cmp: str = "equals",
                                  description: str = "",
@@ -305,7 +301,7 @@ def findAdvertBaseOnAllCriterias(transaction: str = "", location: str = "",
         print("there is no records found for your research !")
 
 
-# findAdvertBaseOnAllCriterias(transaction="sale")
+# findAdvertBaseOnCriterias(transaction="sale")
 
 
 def makeOfferForAdvert(id_advert: int, price: float) -> None:
@@ -350,9 +346,11 @@ def printAllOffersIMade() -> None:
 
         if results:
             # Define the header format and print the header
-            header_format = ("{:<10} | {:<10} | {:<10} | {:<10} | {:<15} | {:<20} | {"
-                             ":<15} | {}")
-            print(header_format.format("id_offer", "state_offer", "my price", "id_advert",
+            header_format = (
+                "{:<10} | {:<10} | {:<10} | {:<10} | {:<15} | {:<20} | {"
+                ":<15} | {}")
+            print(header_format.format("id_offer", "state_offer", "my price",
+                                       "id_advert",
                                        "transaction", "price of the advert",
                                        "location", "description"))
             print("-" * 110)  # Print a separator line for better clarity
@@ -429,7 +427,7 @@ def answerOffer(id_offer: int, answer: str):
         session.rollback()
 
 
-answerOffer(id_offer=10, answer="refused")
+# answerOffer(id_offer=10, answer="refused")
 
 # We close the session
 session.close()
