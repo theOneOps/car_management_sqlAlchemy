@@ -1,6 +1,6 @@
 import math
 
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Query
 
@@ -19,25 +19,34 @@ session = Session()
 
 # Request to register as new user
 
-def addUser(name: str, password: str, email: str = "")->bool:
+def addUser(name: str, password: str, email: str = "") -> bool:
     user = User(username=name, password=password, email=email)
     session.add(user)
     session.commit()
     print("account created successfully !")
 
 
-
 # addUser("userOnefst", "thepassword", "userOnefst@gmail.com")
 # addUser("userScd", "thepasswordTwo")
 
 
-def printAllUsers():
-    results = session.query(User).all()
-    for row in results:
-        print(f"{row.id_user} {row.username} {row.password}\n")
+def printAllSellers():
+    results = session.query(User.id_user, func.max(User.username), func.max(Advert.id_advert)). \
+        join(Advert, User.id_user == Advert.id_user). \
+        group_by(User.id_user).all()
 
+    if results:
+        line_format = "| {:<10} | {:<20} | {:<10}"
+        print(line_format.format("id_user", "username"))
+        print("-" * 50)
 
-# printAllUsers()
+        for result in results:
+            id_user, username, max_advert_id = result  # Déballer le tuple dans trois variables
+            print(line_format.format(id_user, username))
+    else:
+        print("No sellers found in the database")
+
+# printAllSellers()
 
 
 def connectAsUser(name: str, password: str) -> bool:
@@ -53,11 +62,6 @@ def connectAsUser(name: str, password: str) -> bool:
             userConnect["name"] = result.username
             userConnect["passwd"] = result.password
             print("conection succeeded \n")
-
-            print("the global user values \n")
-            print(
-                f"userid -> {userConnect["id"]} username -> {userConnect["name"]}  "
-                f"password-> {userConnect["passwd"]} \n")
 
     except NoResultFound:
         print(f"there is no user with name {name} and password {password}")
@@ -80,27 +84,44 @@ def disConnect():
 
 def printAllCategories():
     results = session.query(Category).all()
-    print("All categories of cars ")
-    print("idCategory  |  car_category")
-    for row in results:
-        print(f"{row.id_category}  |  {row.car_category} \n")
+    if results:
+        # En-tête du tableau
+        print("All categories of cars")
+        print("| {:<12} | {:<20}".format("idCategory", "car_category"))
+        print("-" * 34)  # Ligne de séparation
+
+        # Affichage des résultats
+        for row in results:
+            print("{:<12} | {:<20}".format(row.id_category, row.car_category))
+    else:
+        print("No categories of car to display")
 
 
 # printAllCategories()
 
 def printAllCars():
-    results = session.query(Car).all()
-    print("All categories of cars ")
-    print("idCar | id_advert | car_model | car_brand | car_state")
-    for row in results:
-        print(f"{row.id_car} | {row.id_advert} | {row.model_car} | "
-              f" {row.car_brand} | {row.car_state} \n")
+    results = session.query(Advert, Car).join(Advert,
+                                              Advert.id_advert == Car.id_advert).all()
+    if results:
+        print("All categories of cars ")
+        print(
+            "idCar | id_advert | car_model | car_brand | car_state | car_category")
+        line_format = "| {:<10} | {:<10} | {:<20} | {:<20} | {:<20} | {:<20} "
+        print(line_format.format("idCar", "id_advert", "car_model", "car_brand",
+                                 "car_state", "car_category"))
+        print("-" * 120)
+        for advert, car in results:
+            print(line_format.format(car.id_car, car.id_advert, car.model_car,
+                                     car.car_brand, car.car_state,
+                                     categories_data[
+                                         int(advert.id_category) - 1][
+                                         str(advert.id_category)]))
 
 
 # printAllCars()
 
 def publishTheAdvert(transaction: str, location: str, price: float,
-                  categoryId: str, description: str = "") -> None:
+                     categoryId: str, description: str = "") -> None:
     global userConnect
     if userConnect["id"] is not None:
         if categoryId in categories_keys:
@@ -115,7 +136,8 @@ def publishTheAdvert(transaction: str, location: str, price: float,
                 print("An advert with the same price, description, transaction,"
                       "and location already exists.")
             else:
-                advert = Advert(transaction=transaction, location=location,
+                advert = Advert(transaction=transaction,
+                                location=location,
                                 price=price,
                                 description=description,
                                 id_user=userConnect["id"],
@@ -144,20 +166,29 @@ def printAllMyAdvertises() -> None:
                                                     Advert.id_user == User.id_user)
                    .filter(User.id_user == userConnect["id"])
                    .all())
-        print(f"All of my adverties in details \n")
-        for advert, user in results:
-            print(f" id_advert -> {advert.id_advert}"
-                  f" transaction -> {advert.transaction} "
-                  f" location -> {advert.location}"
-                  f" price -> {advert.price}"
-                  f" description -> {advert.description}"
-                  f" category -> "
-                  f"{categories_data[int(advert.id_category) - 1][str(advert.id_category)]}"
-                  f"\n")
+        if results:
+            print("All of my advertisements in details\n")
+            header = "{:<12} | {:<12} | {:<12} | {:<12} | {:<14} | {}"
+            print(header.format("id_advert", "transaction", "location",
+                                "price", "category", "description"))
+            print("-" * 110)  # Ligne de séparation
+
+            for advert, user in results:
+                category_id = int(advert.id_category) - 1
+                category_name = categories_data[category_id][
+                    str(advert.id_category)]
+
+                line = "{:<12} | {:<12} | {:<12} | {:<12.2f} | {:<14} | {}"
+                print(line.format(advert.id_advert, advert.transaction,
+                                  advert.location, advert.price,
+                                  category_name, advert.description))
+        else:
+            print("you don't have any advertises ! ")
     else:
         print(f"To see your advertises, you need to be connect first to "
               f"execute this request")
-        print(f"if you don't have account, create one with the command ...")
+        print(f"if you don't have account, create one with the command "
+              f" 'createAccount' ")
 
 
 # printAllMyAdvertises()
@@ -171,17 +202,23 @@ def printAllAdvertisesOf(username: str) -> None:
             User.username == username)
         print(f"the advertises made by the user {username} \n")
         if results:
-            print(f"there are {results.count()} results \n")
+            count = len(results)
+            print(f"There are {count} results\n")
+            header = "{:<12} | {:<12} | {:<12} | {:<12} | {:<15} | {}"
+            print(header.format("id_advert", "transaction", "location", "price",
+                                "category", "description"))
+            print("-" * 90)  # Ligne de séparation
+
             for advert, user in results:
-                print(f" id_advert -> {advert.id_advert}"
-                      f" transaction -> {advert.transaction} "
-                      f" location -> {advert.location}"
-                      f" price -> {advert.price}"
-                      f" description -> {advert.description}"
-                      f" category -> "
-                      f""
-                      f"{categories_data[int(advert.id_category) - 1][str(advert.id_category)]}"
-                      f"\n")
+                category_id = int(advert.id_category) - 1
+                category_name = categories_data[category_id][
+                    str(advert.id_category)]
+
+                # Affichage détaillé de chaque annonce
+                line = "{:<12} | {:<12} | {:<12} | {:<12.2f} | {:<15} | {}"
+                print(line.format(advert.id_advert, advert.transaction,
+                                  advert.location, advert.price,
+                                  advert.description, category_name))
         else:
             print(f"The username '{username}' you enter is not registered "
                   f"on the "
@@ -189,11 +226,12 @@ def printAllAdvertisesOf(username: str) -> None:
     else:
         print("you need to connect first ! \n")
 
+
 # printAllAdvertisesOf("BobSmith")
 
 
 def modifyTheAdvert(id_advert: int, newTransaction: str, newLocation: str,
-                 newPrice: float, newDescription: str) -> None:
+                    newPrice: float, newDescription: str) -> None:
     global userConnect
 
     if userConnect["id"] is not None:
@@ -244,11 +282,11 @@ def removeAdvertOfId(id_advert: Integer) -> None:
 
 
 def findAdvertBaseOnCriterias(transaction: str = "", location: str = "",
-                                 price: float = math.inf,
-                                 cmp: str = "equals",
-                                 description: str = "",
-                                 id_category: str = "",
-                                 id_user: int = math.inf) -> None:
+                              price: float = math.inf,
+                              cmp: str = "equals",
+                              description: str = "",
+                              id_category: str = "",
+                              id_user: int = math.inf) -> None:
     results = Query(Advert, session)
     if transaction != "":
         results = results.filter(Advert.transaction == transaction)
@@ -301,47 +339,74 @@ def findAdvertBaseOnCriterias(transaction: str = "", location: str = "",
         print("there is no records found for your research !")
 
 
-# findAdvertBaseOnCriterias(transaction="sale")
+# findAdvertBaseOnCriterias()
 
 
 def makeOfferForAdvert(id_advert: int, price: float) -> None:
     global userConnect
     if userConnect["id"] is not None:
-        request = session.query(Offer, ProposeOffer).join(
-            ProposeOffer, Offer.id_offer == ProposeOffer.id_offer
-        ).filter(
-            and_(and_(Offer.price_proposed == price, ProposeOffer.id_advert ==
-                      id_advert),
-                 ProposeOffer.id_user == userConnect["id"])).first()
+        try:
+            advertExists = session.query(Advert).filter(Advert.id_advert ==
+                                                        id_advert).one()
 
-        if request:
-            print(
-                f"You have already make an offer for the advert of id {id_advert}")
+            myadvert = session.query(Advert).filter(and_(Advert.id_user ==
+                                                    userConnect["id"],
+                                                         Advert.id_advert == id_advert
+                                                         )).first()
+            if myadvert:
+                print("this advert is yours, you can make offer on your own "
+                      "advert !")
+            else:
+                request = session.query(Offer, ProposeOffer, Advert).join(
+                    ProposeOffer, Offer.id_offer == ProposeOffer.id_offer
+                ).join(
+                    Advert, Advert.id_advert == ProposeOffer.id_advert
+                ).filter(
+                    # Conditions principales
+                    Offer.price_proposed == price,  # Prix proposé correspondant
+                    ProposeOffer.id_advert == id_advert,
+                    # ID de l'annonce proposée correspondant
 
-        else:
-            offer = Offer(state_offer="pending", price_proposed=price)
-            session.add(offer)
-            session.commit()
-            the_propose_offer = ProposeOffer(id_user=userConnect["id"],
-                                             id_offer=offer.id_offer,
-                                             id_advert=id_advert)
+                    # Conditions supplémentaires
+                    ProposeOffer.id_user == userConnect["id"],
+                    # ID utilisateur de l'offre correspondant
+                    Advert.id_user != userConnect["id"]
+                    # ID utilisateur de l'annonce ne correspond pas à l'utilisateur connecté
+                ).first()
 
-            session.add(the_propose_offer)
-            session.commit()
+                if request:
+                    print(
+                        f"You have already make an offer for the advert of id {id_advert}")
 
-            print(f"offer successfully made for the advert of id {id_advert} ")
+                else:
+                    offer = Offer(state_offer="pending", price_proposed=price)
+                    session.add(offer)
+                    session.commit()
+                    the_propose_offer = ProposeOffer(id_user=userConnect["id"],
+                                                     id_offer=offer.id_offer,
+                                                     id_advert=id_advert)
+
+                    session.add(the_propose_offer)
+                    session.commit()
+
+                    print(
+                        f"offer successfully made for the advert of id {id_advert} ")
+        except NoResultFound:
+            print(f"an advert with the id {id_advert} doesn't exist in the "
+                  f"database")
 
 
 # makeOfferForAdvert(4, 20000)
 
 
-def printAllOffersIMade() -> None:
+def printAllOffersIHaveMade() -> None:
     global userConnect
     if userConnect["id"] is not None:
         results = session.query(Offer, ProposeOffer, Advert) \
             .join(ProposeOffer, Offer.id_offer == ProposeOffer.id_offer) \
             .join(Advert, Advert.id_advert == ProposeOffer.id_advert) \
-            .filter(ProposeOffer.id_user == userConnect["id"]) \
+            .filter(and_(ProposeOffer.id_user == userConnect["id"]),
+                    Advert.id_user != userConnect["id"]) \
             .all()
 
         if results:
@@ -371,63 +436,103 @@ def printAllOffersIMade() -> None:
                     advert.description
                 ))
                 print()  # Adding a newline for spacing between entries
+        else:
+            print("You have made no offers !")
 
     else:
         print("you need to login first before executing this command !")
 
 
-# printAllOffersIMade()
+# printAllOffersIHaveMade()
 
 
 def printOffersOnMyAdvertOfId(id_advert: int = math.inf,
-                              state_offer: str = "", printUsers: bool = False,
-                              printAdverts: bool = False) -> \
-        None:
-    results = session.query(ProposeOffer, Offer, Advert, User).join(
-        Offer, Offer.id_offer == ProposeOffer.id_offer
-    ).join(Advert, Advert.id_advert == ProposeOffer.id_advert).join(
-        User.id_user == ProposeOffer.id_user)
+                              state_offer: str = "") -> None:
+    global userConnect
 
-    if id_advert != math.inf:
-        results = results.filter(Advert.id_advert == id_advert)
+    if userConnect["id"] is not None:
 
-    if state_offer != "":
-        results = results.filter(Offer.state_offer == state_offer)
-
-    results = results.all()
-
-    for proposeOffer, offer, advert, user in results:
-        if printUsers:
-            print(f"user_id {user.id_user} offerUserName : {user.username}")
-
-        print(f"offer_id {offer.id_offer} state_offer {offer.state_offer} "
-              f"price_proposed {offer.price_proposed}")
-
-        if printAdverts:
-            print(f"transaction {advert.transaction} location "
-                  f"{advert.location} price {advert.price} "
-                  f"description {advert.description}")
-
-        print("\n")
+        try:
+            if id_advert != math.inf:
+                request = session.query(Advert).filter(and_(Advert.id_advert ==
+                                                            id_advert,
+                                                            Advert.id_user ==
+                                                            userConnect[
+                                                                "id"])).one()
+            else:
+                request = session.query(Advert).filter(and_(
+                                                            Advert.id_user ==
+                                                            userConnect[
+                                                                "id"])).one()
 
 
-def answerOffer(id_offer: int, answer: str):
-    try:
-        offer = session.query(Offer).filter(
-            Offer.id_offer == id_offer).one_or_none()
+            results = session.query(User, ProposeOffer, Offer, Advert) \
+                .join(ProposeOffer, ProposeOffer.id_user == User.id_user) \
+                .join(Offer, ProposeOffer.id_offer == Offer.id_offer) \
+                .join(Advert, ProposeOffer.id_advert == Advert.id_advert) \
+                .filter(
+                Advert.id_user == userConnect["id"],
+                ProposeOffer.id_user != Advert.id_user,
+                Advert.id_user == userConnect["id"]
+            )
 
-        if offer and offer.state_offer == "pending":
-            offer.state_offer = answer
-            session.commit()
-            print("Offer updated successfully.")
-        else:
-            print(f"No pending offer found with the specified ID {id_offer}.")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        session.rollback()
+            if id_advert != math.inf:
+                results = results.filter(Advert.id_advert == id_advert)
+
+            if state_offer != "":
+                results = results.filter(Offer.state_offer == state_offer)
+
+            results = results.all()
+
+            if results:
+                for user, proposeoffer, offer, advert in results:
+                    print(f"offerUserId {user.id_user} offerUserName :"
+                          f" {user.username}")
+
+                    print(
+                        f"offer_id {offer.id_offer} state_offer {offer.state_offer} "
+                        f"price_proposed {offer.price_proposed}")
+
+                    print(f"transaction {advert.transaction} location "
+                          f"{advert.location} price {advert.price} "
+                          f"description {advert.description}")
+
+                    print("\n")
+            else:
+                if id_advert == math.inf:
+                    print("there is no offer for your advertises !")
+                else:
+                    print(
+                        f"there is no offer for your advertise of id {id_advert}!")
+        except NoResultFound:
+            print(f"you don't have advert of id {id_advert}")
 
 
-# answerOffer(id_offer=10, answer="refused")
+def answerOfferOfId(id_offer: int, answer: str):
+    global userConnect
+    if userConnect["id"] is not None:
+        try:
+            offer = session.query(Offer).filter(
+                Offer.id_offer == id_offer).one_or_none()
+            try:
+                myOffer = session.query(ProposeOffer).filter(
+                    and_(ProposeOffer.id_user == userConnect["id"],
+                         ProposeOffer.offer == id_offer)).one()
+                if offer and offer.state_offer == "pending":
+                    offer.state_offer = answer
+                    session.commit()
+                    print("Offer updated successfully.")
+                else:
+                    print(
+                        f"No pending offer found with the specified ID {id_offer}.")
+            except NoResultFound:
+                print("this offer is yours, you can answer your own offer !")
+        except NoResultFound:
+            print(f"the offer with the id {id_offer} doesn't exist !")
+            session.rollback()
+
+
+# answerOfferOfId(id_offer=10, answer="refused")
 
 # We close the session
 session.close()
