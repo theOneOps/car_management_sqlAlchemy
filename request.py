@@ -20,6 +20,7 @@ session = Session()
 # Request to register as new user
 
 def addUser(name: str, password: str, email: str = "") -> bool:
+    # we instanciate a user with the values of the finction's paramters 
     user = User(username=name, password=password, email=email)
     session.add(user)
     session.commit()
@@ -31,19 +32,24 @@ def addUser(name: str, password: str, email: str = "") -> bool:
 
 
 def printAllSellers():
+    # we make a request to get all users that have publiushed some adverts
+    # so we only need the User table and the Advert table
+    # so we join the tables and we group bt the user_id to not have duplications name in the results
     results = session.query(User.id_user, func.max(User.username), func.max(Advert.id_advert)). \
         join(Advert, User.id_user == Advert.id_user). \
         group_by(User.id_user).all()
 
+    # if there is some results :
     if results:
+        # we print them
         line_format = "| {:<10} | {:<20} | {:<10}"
         print(line_format.format("id_user", "username"))
         print("-" * 50)
 
         for result in results:
-            id_user, username, max_advert_id = result  # Déballer le tuple dans trois variables
+            id_user, username, max_advert_id = result
             print(line_format.format(id_user, username))
-    else:
+    else: # else we print an error's message
         print("No sellers found in the database")
 
 # printAllSellers()
@@ -53,17 +59,21 @@ def connectAsUser(name: str, password: str) -> bool:
     global userConnect
     res: bool = False
     try:
+        # to connect our user, we need to check if the name and password 
+        # he/she gives as input are valid authentification password registered in the database
         result = session.query(User).filter(and_(User.username.like(name),
                                                  User.password.like(
                                                      password))).one()
+        # if we find an record :
         if result:
+            # we stock it for further requests
             res = True
             userConnect["id"] = result.id_user
             userConnect["name"] = result.username
             userConnect["passwd"] = result.password
             print("conection succeeded \n")
-
-    except NoResultFound:
+    # unless we found no record
+    except NoResultFound: # we return an error message
         print(f"there is no user with name {name} and password {password}")
     return res
 
@@ -73,6 +83,8 @@ def connectAsUser(name: str, password: str) -> bool:
 
 def disConnect():
     global userConnect
+    # to disconnect our user, we just nned to get rid of 
+    # the user 's value we stock before when he was logged in
     if userConnect["id"] is not None:
         userConnect["id"] = None
         userConnect["name"] = ""
@@ -83,14 +95,15 @@ def disConnect():
 # disConnect()
 
 def printAllCategories():
+    # to print all categories, we just make a query on the category's table to get all its records
     results = session.query(Category).all()
     if results:
-        # En-tête du tableau
+        # Headers of the results
         print("All categories of cars")
         print("| {:<12} | {:<20}".format("idCategory", "car_category"))
-        print("-" * 34)  # Ligne de séparation
+        print("-" * 34)  # line that separate headers from the results
 
-        # Affichage des résultats
+        # Print the results
         for row in results:
             print("{:<12} | {:<20}".format(row.id_category, row.car_category))
     else:
@@ -100,16 +113,18 @@ def printAllCategories():
 # printAllCategories()
 
 def printAllCars():
+    # we only print all cars that were concerned about advertises
+    # hence the join between the Advert table and the Car table
     results = session.query(Advert, Car).join(Advert,
                                               Advert.id_advert == Car.id_advert).all()
     if results:
         print("All categories of cars ")
         print(
-            "idCar | id_advert | car_model | car_brand | car_state | car_category")
+            "idCar | id_advert | car_model | car_brand | car_state | car_category") # for the headers
         line_format = "| {:<10} | {:<10} | {:<20} | {:<20} | {:<20} | {:<20} "
         print(line_format.format("idCar", "id_advert", "car_model", "car_brand",
                                  "car_state", "car_category"))
-        print("-" * 120)
+        print("-" * 120) # line that separate headers from the results
         for advert, car in results:
             print(line_format.format(car.id_car, car.id_advert, car.model_car,
                                      car.car_brand, car.car_state,
@@ -123,19 +138,21 @@ def printAllCars():
 def publishTheAdvert(transaction: str, location: str, price: float,
                      categoryId: str, description: str = "") -> None:
     global userConnect
+    # to publish a 
     if userConnect["id"] is not None:
         if categoryId in categories_keys:
 
-            # we check if the advert has been created before
+            # to publish an advert, we check if the advert has been created before
             request = session.query(Advert).filter_by(
                 transaction=transaction, location=location, price=price,
                 id_category=categoryId, description=description,
                 id_user=userConnect["id"]).first()
-
+            # if yes, then you just returned an error message
             if request:
                 print("An advert with the same price, description, transaction,"
                       "and location already exists.")
             else:
+                # else we create the advert
                 advert = Advert(transaction=transaction,
                                 location=location,
                                 price=price,
@@ -145,7 +162,7 @@ def publishTheAdvert(transaction: str, location: str, price: float,
                 session.add(advert)
                 session.commit()
                 print("advert published successfully !")
-        else:
+        else: # if the category id is not valid, we returned an error message
             print(f"the categoryId {categoryId} doesn't exist"
                   "first, check the list of "
                   "available categories "
@@ -161,12 +178,12 @@ def publishTheAdvert(transaction: str, location: str, price: float,
 def printAllMyAdvertises() -> None:
     global userConnect
     if userConnect["id"] is not None:
-
+        # to print all of my advertises, we make a query to get all advertises where the id_user from the Advert table is the user 'logged in'
         results = (session.query(Advert, User).join(User,
                                                     Advert.id_user == User.id_user)
                    .filter(User.id_user == userConnect["id"])
                    .all())
-        if results:
+        if results:# if we have some results, we print them
             print("All of my advertisements in details\n")
             header = "{:<12} | {:<12} | {:<12} | {:<12} | {:<14} | {}"
             print(header.format("id_advert", "transaction", "location",
@@ -182,9 +199,9 @@ def printAllMyAdvertises() -> None:
                 print(line.format(advert.id_advert, advert.transaction,
                                   advert.location, advert.price,
                                   category_name, advert.description))
-        else:
+        else: # else there is no advertises for that user 'logged in'
             print("you don't have any advertises ! ")
-    else:
+    else: # unless, you 'are not logged in, the nyou should be logged in
         print(f"To see your advertises, you need to be connect first to "
               f"execute this request")
         print(f"if you don't have account, create one with the command "
@@ -197,11 +214,12 @@ def printAllMyAdvertises() -> None:
 def printAllAdvertisesOf(username: str) -> None:
     global userConnect
     if userConnect["id"] is not None:
+        # we print all advertises of a username given in parameter
         results = session.query(Advert, User).join(User, Advert.id_user ==
                                                    User.id_user).filter(
             User.username == username)
         print(f"the advertises made by the user {username} \n")
-        if results:
+        if results: # if there are some results, we print them
             count = len(results)
             print(f"There are {count} results\n")
             header = "{:<12} | {:<12} | {:<12} | {:<12} | {:<15} | {}"
@@ -219,8 +237,8 @@ def printAllAdvertisesOf(username: str) -> None:
                 print(line.format(advert.id_advert, advert.transaction,
                                   advert.location, advert.price,
                                   advert.description, category_name))
-        else:
-            print(f"The username '{username}' you enter is not registered "
+        else:# unless, there is no user with that name who publish before or just existed
+            print(f"The username '{username}' you enter doesn't exist or doesn't have advertises"
                   f"on the "
                   f"\application")
     else:
@@ -233,14 +251,18 @@ def printAllAdvertisesOf(username: str) -> None:
 def modifyTheAdvert(id_advert: int, newTransaction: str, newLocation: str,
                     newPrice: float, newDescription: str) -> None:
     global userConnect
-
+    
     if userConnect["id"] is not None:
         try:
+            # to modify an advert, we firdt check if the advert with the id 
+            # given in parameter existed and is the user's own
             result = session.query(Advert, User).join(User, Advert.id_user ==
                                                       User.id_user).filter(
                 and_(User.id_user == userConnect["id"], Advert.id_advert ==
                      id_advert)).one()
+            # if we found a result
             if result:
+                # then we search it and we modify it
                 session.query(Advert).filter(
                     Advert.id_advert == id_advert).update({
                     Advert.price: newPrice,
@@ -252,7 +274,7 @@ def modifyTheAdvert(id_advert: int, newTransaction: str, newLocation: str,
                 print(
                     f"you have successfully changed one of your advert of id_advert"
                     f" {id_advert}")
-        except NoResultFound:
+        except NoResultFound: # unless there is no advert found for us
             print(f"you don't have advert of id {id_advert}")
 
 
@@ -261,13 +283,16 @@ def modifyTheAdvert(id_advert: int, newTransaction: str, newLocation: str,
 
 def removeAdvertOfId(id_advert: Integer) -> None:
     global userConnect
-
     try:
+        # to remove an advert, we need to check if the advert_id is one of us,
+        # and if it's really existed
         result = session.query(Advert, User).join(User, Advert.id_user ==
                                                   User.id_user).filter(
             and_(User.id_user == userConnect["id"], Advert.id_advert ==
                  id_advert)).one()
+        # if there is a result
         if result:
+            # we found it, and removed it from the database
             request = session.get(Advert, id_advert)
             session.delete(request)
             session.commit()
