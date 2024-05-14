@@ -15,7 +15,7 @@ class User(Base):
     id_user = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(50), nullable=False, unique=True)
     password = Column(String(50), nullable=False)
-    email = Column(String(50), unique=True)
+    email = Column(String(50))
     adverts = relationship("Advert", back_populates="user",
                            cascade="all, delete, delete-orphan")
     proposed_offers = relationship("ProposeOffer", back_populates="user",

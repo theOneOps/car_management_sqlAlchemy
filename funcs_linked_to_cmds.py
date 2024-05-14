@@ -5,12 +5,13 @@ from request import *
 finished_app: bool = True
 isLogin: bool = False
 
+# function to get a user's input
 
 def enterCommand() -> str:
     request: str = input("enter a command : ").lower()
     return request
 
-
+# function to ask user to login
 def login():
     global isLogin
     print("login's trial")
@@ -18,14 +19,14 @@ def login():
     passwd: str = input("enter your password : ").lower()
     isLogin = connectAsUser(name, passwd)
 
-
+# function to disconnect the user
 def logout():
     global isLogin
     if isLogin:
         disConnect()
         isLogin = False
 
-
+# function to create an account
 def createAccount():
     print("creation of an account : ")
     name: str = input("enter a name : ").lower()
@@ -39,7 +40,7 @@ def createAccount():
     else:
         print("name should not be empty !")
 
-
+# function to remove an advert
 def removeAdvert():
     global isLogin
     if isLogin:
@@ -54,7 +55,7 @@ def removeAdvert():
     else:
         print("you have to login first before making this command \n")
 
-
+# function to publish an advert
 def publishAdvert():
     if isLogin:
         transaction: str = input(
@@ -91,7 +92,7 @@ def publishAdvert():
     else:
         print("you have to login first before making this command \n")
 
-
+# function to modify an advert
 def modifyAdvert() -> None:
     global isLogin
 
@@ -131,7 +132,7 @@ def modifyAdvert() -> None:
     else:
         print(f"you have to connect first before making this command !")
 
-
+# function to search an Advert on multiple criterias
 def searchAdvertOn():
     transaction: str = input(
         "enter a transaction value [e.g: sale, rent] : ").lower()
@@ -159,7 +160,7 @@ def searchAdvertOn():
     if transaction != "" or transaction == "":
         if cmp == "":
             cmp = "equals"
-        if cmp in ["inf", "equals", "infEquals", "supEquals", "sup"]:
+        if cmp in ["inf", "equals", "infequals", "supequals", "sup"]:
             if location != "" or location == "":
                 if price != "" and price.isdigit():
                     thePrice = float(price)
@@ -176,19 +177,20 @@ def searchAdvertOn():
                     # print(transaction, location, price, categoryId, description,
                     #       cmp, id_user)
 
-
+# function to get the history of offers made by user
 def printAllOffersImade():
     if isLogin:
         printAllOffersIHaveMade()
     else:
         print("you have to login first before making this command \n")
 
-
+# function to answer to an offer
 def answerOffer():
     if isLogin:
         offer_id = input("Enter the offer Id "
                          "\n [first check all offers you "
-                         "have received : ''] ")
+                         "have received with : 'printofferonmyadvert to "
+                         "see offer's id ']: ")
         if offer_id.isdigit():
             my_answer = input("Enter the answer for that offer \n"
                               "[there is only 3 available answers :\n"
@@ -209,6 +211,7 @@ def answerOffer():
         print("you have to login first before making this command \n")
 
 
+# function to make and send offer for an advert
 def makeOfferOnAdvert():
     if isLogin:
         advert_id: str = input("Enter the advert Id : ")
@@ -224,12 +227,14 @@ def makeOfferOnAdvert():
     else:
         print("you should log in first before making this command ! \n")
 
-
+# function to quit app
 def quitApp():
     global finished_app
+    if isLogin:
+        disConnect()
     finished_app = False
 
-
+# function to get  help to use this app
 def help(cmd: str = ""):
     if cmd == "":
         print("User Functionalities for Car Sales Application:")
@@ -278,7 +283,7 @@ def help(cmd: str = ""):
             print(f"the command {cmd} doesn't have documentation\n"
                   f"it's not a valid command !")
 
-
+#function to analyze command
 def analyzeCmd(command: str) -> None:
     try:
         cmds = command.split()
@@ -295,12 +300,15 @@ def analyzeCmd(command: str) -> None:
         print(f"An error occurred: {e}")
 
 
+#function to start the app
 def startApp():
+    analyzeCmd("help")
     while finished_app:
         cmd: str = enterCommand()
         analyzeCmd(cmd)
 
 
+#function to get all offer on my advert
 def printOfferOnMyAdvert():
     if isLogin:
         theId: int = math.inf
@@ -320,7 +328,7 @@ def printOfferOnMyAdvert():
     else:
         print("you need to be connect before making this command !")
 
-
+#list of all commands and the proper functions they called
 allCommands: Dict[str, Callable[[], None]] = {
     "login": login,
     "logout": logout,
@@ -333,14 +341,16 @@ allCommands: Dict[str, Callable[[], None]] = {
     "modifyadvert": modifyAdvert,
     "searchadverton": searchAdvertOn,
     "printalloffersimade": printAllOffersImade,
-    "answerOffer": answerOffer,
+    "answeroffer": answerOffer,
     "printallsellers": printAllSellers,
     "quit": quitApp,
     "makeofferonadvert": makeOfferOnAdvert,
     "help": help,
     "printofferonmyadvert": printOfferOnMyAdvert,
+    "printalladvertisesofseller": printAllAdvertisesOf,
 }
 
+#list of help when use the command "help <command>"
 command_descriptions = {
     "login": "Log in with your username and password.",
     "logout": "Log out from the application.",
