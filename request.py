@@ -312,51 +312,52 @@ def findAdvertBaseOnCriterias(transaction: str = "", location: str = "",
                               description: str = "",
                               id_category: str = "",
                               id_user: int = math.inf) -> None:
+    # we first initialize the query
     results = Query(Advert, session)
-    if transaction != "":
+    if transaction != "": # if there is a value of transaction, we make some filter based on it
         results = results.filter(Advert.transaction == transaction)
 
-    if location != "":
+    if location != "": # if there is a value of location, we make some filter based on it
         results = results.filter(Advert.location == location)
 
     if price != math.inf:
-        if cmp == "equals":
+        if cmp == "equals": # if cmp is '=', then we filter the advert based on the equals price given in parameters
             results = results.filter(Advert.price == price)
-        elif cmp == "inf":
+        elif cmp == "inf": # if cmp is '<', then we filter the advert based on the lower price given in parameters
             results = results.filter(Advert.price < price)
-        elif cmp == "infEquals":
+        elif cmp == "infEquals": # if cmp is '<=', then we filter the advert based on the equals or lower price given in parameters
             results = results.filter(Advert.price <= price)
-        elif cmp == "supEquals":
+        elif cmp == "supEquals": # if cmp is '>=', then we filter the advert based on the equals or upper price given in parameters
             results = results.filter(Advert.price >= price)
-        elif cmp == "sup":
+        elif cmp == "sup":# if cmp is '>', then we filter the advert based on the upper price given in parameters
             results = results.filter(Advert.price > price)
-        else:
+        else: # that sign of cmp is not recognized !
             print("I don't recognize that value of cmp for this research !")
 
-    if description != "":
+    if description != "": # if there is a value of description, we make some filter based on it
         results = results.filter(Advert.description == description)
 
-    if id_user != math.inf:
+    if id_user != math.inf: # if there is a value of user's id, we make some filter based on it
         results = results.filter(Advert.id_user == id_user)
 
-    if id_category != "":
+    if id_category != "": # if there is a value of category_id, we make some filter based on it
         results = results.filter(Advert.id_category == int(id_category))
 
     if (transaction == "" and location == "" and price == math.inf and
             description == "" and id_user == math.inf
-            and id_category != ""):
+            and id_category != ""): # if all attributs are empty, then e get all records of the table
         results = Query(Advert, session).all()
     else:
-        results = results.all()
+        results = results.all() # unless we make request based on the filters we worked on before
 
-    if results:
+    if results: # if there is some results
         header = "{:<10} | {:<15} | {:<15} | {:<15} | {:<10} | {}"
         print(header.format("id_user", "id_category", "transaction", "location",
                             "price", "description"))
-        print("-" * 90)  # Ajoute une ligne de séparation
+        print("-" * 90)  # line that separates headers from the results
 
         for row in results:
-            # Utilisation de format pour aligner les colonnes
+            # we initialize the format to print the results 
             line = "{:<10} | {:<15} | {:<15} | {:<15} | {:<10.2f} | {}"
             print(line.format(row.id_user, row.id_category, row.transaction,
                               row.location, row.price, row.description))
@@ -371,39 +372,42 @@ def makeOfferForAdvert(id_advert: int, price: float) -> None:
     global userConnect
     if userConnect["id"] is not None:
         try:
+            # to make an offer, we first check if the advert 
+            # with the id given in parameters really existed
             advertExists = session.query(Advert).filter(Advert.id_advert ==
                                                         id_advert).one()
-
+            # if we find an advert, we check if it's the user 'logged in' own
             myadvert = session.query(Advert).filter(and_(Advert.id_user ==
                                                     userConnect["id"],
                                                          Advert.id_advert == id_advert
                                                          )).first()
-            if myadvert:
+            if myadvert: # if yes, then we can't make offer on our own advertises
                 print("this advert is yours, you can make offer on your own "
                       "advert !")
-            else:
+            else: # if not, we make query to get the advert
                 request = session.query(Offer, ProposeOffer, Advert).join(
                     ProposeOffer, Offer.id_offer == ProposeOffer.id_offer
                 ).join(
                     Advert, Advert.id_advert == ProposeOffer.id_advert
                 ).filter(
-                    # Conditions principales
-                    Offer.price_proposed == price,  # Prix proposé correspondant
+                    
+                    Offer.price_proposed == price,  # advert with the concerned price
                     ProposeOffer.id_advert == id_advert,
-                    # ID de l'annonce proposée correspondant
+                    # id of the concerned advert
 
-                    # Conditions supplémentaires
-                    ProposeOffer.id_user == userConnect["id"],
-                    # ID utilisateur de l'offre correspondant
-                    Advert.id_user != userConnect["id"]
-                    # ID utilisateur de l'annonce ne correspond pas à l'utilisateur connecté
+                    # Additional conditions
+                    # the user who proposed the offer is me # basically I can't make the same offer again !
+                    ProposeOffer.id_user == userConnect["id"], 
+                    Advert.id_user != userConnect["id"] 
+                    # the advert's creator should not be the connected user who made the advert
                 ).first()
 
-                if request:
+                if request: # if we found an offer, then we have already made an offer,
+                    # like that before with the same lement of offers
                     print(
                         f"You have already make an offer for the advert of id {id_advert}")
 
-                else:
+                else: # we haven't made that kind of offer before
                     offer = Offer(state_offer="pending", price_proposed=price)
                     session.add(offer)
                     session.commit()
